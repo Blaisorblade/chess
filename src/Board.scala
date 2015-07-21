@@ -75,6 +75,7 @@ object data {
   //TODO:
   //- Rooks.
   //- En-passant captures.
+  // They also require crosscutting handling elsewhere.
 
   trait BoardState {
     // Return the sequence of pieces on the board. This is just one possible view.
@@ -84,4 +85,26 @@ object data {
     //Produces the new state resulting from a given move. The move is supposed to be legal.
     def toNewState(m: Move): BoardState
   }
+  class BoardStateI(val pieces: Set[LocatedPiece]) extends BoardState {
+    private val piecesArray: Array[Array[Option[Piece]]] = Array.fill(boardSize)(Array.fill(boardSize)(None))
+    for (LocatedPiece(piece, Vector2D(x, y)) <- pieces) {
+      piecesArray(x)(y) = Some(piece)
+    }
+    //Finds the piece in a given position (if any).
+    def piece(p: Pos): Option[Piece] = p match {
+      case Vector2D(x, y) => piecesArray(x)(y)
+    }
+    def toNewState(m: Move): BoardState = m match {
+      case NormalMove(p, src, dst, isCapture) =>
+        val dstPiece = piece(dst)
+        //We can't restrict statically the move to be valid, so we just assert
+        //the condition we need for correctness.
+        assert(dstPiece.nonEmpty == isCapture)
+        val newPieces = pieces - LocatedPiece(p, src) + LocatedPiece(p, dst) -- (dstPiece map (LocatedPiece(_, dst)))
+        new BoardStateI(newPieces)
+    }
+  }
+  //XXX: Checking legality depends on properties of the game history, because
+  //of en-passant captures and because of rooks.
+  def isLegal(m: Move, b: BoardState) = ???
 }
