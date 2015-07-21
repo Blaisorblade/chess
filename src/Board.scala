@@ -1,5 +1,6 @@
 // Package
 object data {
+  val boardSize = 8
 
   //Color enumeration
   trait Color
@@ -17,19 +18,19 @@ object data {
 
   //XXX reuse some implementation?
   /*
-  trait Vector {
+  trait Vector2D {
     def x: Int
     def y: Int
   }
    */
-  case class Vector(x: Int, y: Int) {
-    def +(v: Vector) = Vector(x + v.x, y + v.y)
-    def *(i: Int) = Vector(x * i, y * i)
+  case class Vector2D(x: Int, y: Int) {
+    def +(v: Vector2D) = Vector2D(x + v.x, y + v.y)
+    def *(i: Int) = Vector2D(x * i, y * i)
     def reverse = this * -1
   }
 
-  type Displacement = Vector
-  type Pos = Vector
+  type Displacement = Vector2D
+  type Pos = Vector2D
 
   // utils
   def colorToDir(c: Color) = c match {
@@ -39,16 +40,20 @@ object data {
   def dirsAndRev(dirs: Seq[Displacement]) =
     dirs ++ dirs map (_.reverse)
 
-  val diagDirs = dirsAndRev(Seq(Vector(1, 1), Vector(1, -1)))
-  val nonDiagDirs = dirsAndRev(Seq(Vector(0, 1), Vector(1, 0)))
+  val diagDirs = dirsAndRev(Seq(Vector2D(1, 1), Vector2D(1, -1)))
+  val nonDiagDirs = dirsAndRev(Seq(Vector2D(0, 1), Vector2D(1, 0)))
   val allDirs = diagDirs ++ nonDiagDirs
 
+  //This is a piece, not located in space.
+  //This piece does not have identity, so it does not allow distinguishing two
+  //pieces of the same color.
+  //Does equality make sense on this type?
   case class Piece(pieceType: PieceT, color: Color) {
     def possibleDispl: Seq[Displacement] =
       pieceType match {
         case Pawn =>
           //XXX what about initial moves?
-          Seq(Vector(0, 1) * colorToDir(color))
+          Seq(Vector2D(0, 1) * colorToDir(color))
         case King =>
           allDirs
         //What about possible repeated movements?
@@ -60,11 +65,23 @@ object data {
           allDirs
       }
   }
+  //A piece located on the board. Structural equality of two pieces on the same
+  //BoardState implies they're equal.
+  case class LocatedPiece(piece: Piece, pos: Pos)
 
-  type Move
+  sealed trait Move
+  //A simple move
+  case class NormalMove(p: Piece, src: Pos, dst: Pos, isCapture: Boolean) extends Move
+  //TODO:
+  //- Rooks.
+  //- En-passant captures.
 
   trait BoardState {
-    def pieces: Seq[(Piece, Pos)]
+    // Return the sequence of pieces on the board. This is just one possible view.
+    def pieces: Set[LocatedPiece]
+    //Finds the piece in a given position (if any).
+    def piece(p: Pos): Option[Piece]
+    //Produces the new state resulting from a given move. The move is supposed to be legal.
     def toNewState(m: Move): BoardState
   }
 }
